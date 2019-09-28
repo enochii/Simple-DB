@@ -7,6 +7,9 @@ import java.io.*;
  * Each instance of HeapPage stores data for one page of HeapFiles and 
  * implements the Page interface that is used by BufferPool.
  *
+ * 一个HeapTable相当于数据库的一个表
+ * Heap Table由 多个HeapPage存储
+ *
  * @see HeapFile
  * @see BufferPool
  *
@@ -15,7 +18,7 @@ public class HeapPage implements Page {
 
     final HeapPageId pid;
     final TupleDesc td;
-    final byte header[];
+    final byte header[];//位图
     final Tuple tuples[];
     final int numSlots;
 
@@ -40,7 +43,7 @@ public class HeapPage implements Page {
      */
     public HeapPage(HeapPageId id, byte[] data) throws IOException {
         this.pid = id;
-        this.td = Database.getCatalog().getTupleDesc(id.getTableId());
+        this.td = Database.getCatalog().getTupleDesc(id.getTableId());//获取Table的描述
         this.numSlots = getNumTuples();
         DataInputStream dis = new DataInputStream(new ByteArrayInputStream(data));
 
@@ -67,7 +70,10 @@ public class HeapPage implements Page {
     */
     private int getNumTuples() {        
         // some code goes here
-        return 0;
+//        floor((BufferPool.getPageSize()*8) / (tuple size * 8 + 1))
+        //一个Tuple需要额外的一个bit也就是 1/8 Byte
+        return (int) Math.floor((double) BufferPool.getPageSize() * 8 / (td.getSize() * 8+1));
+//        return 0;
 
     }
 
@@ -76,9 +82,9 @@ public class HeapPage implements Page {
      * @return the number of bytes in the header of a page in a HeapFile with each tuple occupying tupleSize bytes
      */
     private int getHeaderSize() {        
-        
+        return (int) Math.ceil((double) getNumTuples() / 8);
         // some code goes here
-        return 0;
+//        return 0;
                  
     }
     
@@ -112,7 +118,8 @@ public class HeapPage implements Page {
      */
     public HeapPageId getId() {
     // some code goes here
-    throw new UnsupportedOperationException("implement this");
+        return pid;
+//    throw new UnsupportedOperationException("implement this");
     }
 
     /**
@@ -282,7 +289,11 @@ public class HeapPage implements Page {
      */
     public int getNumEmptySlots() {
         // some code goes here
-        return 0;
+        int cnt = 0;
+        for(byte i:header){
+            if(i == 0)cnt++;
+        }
+        return cnt;
     }
 
     /**
@@ -290,7 +301,8 @@ public class HeapPage implements Page {
      */
     public boolean isSlotUsed(int i) {
         // some code goes here
-        return false;
+//        return false;
+        return header[i] == 1;
     }
 
     /**
@@ -307,7 +319,8 @@ public class HeapPage implements Page {
      */
     public Iterator<Tuple> iterator() {
         // some code goes here
-        return null;
+
+        return Arrays.asList(tuples).iterator();
     }
 
 }

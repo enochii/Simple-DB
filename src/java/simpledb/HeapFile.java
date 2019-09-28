@@ -4,6 +4,14 @@ import java.io.*;
 import java.util.*;
 
 /**
+ * A HeapFile object is arranged into a set of pages, each of which consists of a fixed
+ * number of bytes for storing tuples, (defined by the constant BufferPool.DEFAULT_PAGE_SIZE)
+ * , including a header. In SimpleDB, there is one HeapFile object for each table in the
+ * database
+ *  每个Page拥有
+ */
+
+/**
  * HeapFile is an implementation of a DbFile that stores a collection of tuples
  * in no particular order. Tuples are stored on pages, each of which is a fixed
  * size, and the file is simply a collection of those pages. HeapFile works
