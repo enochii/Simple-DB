@@ -48,6 +48,7 @@ public class HeapPage implements Page {
         DataInputStream dis = new DataInputStream(new ByteArrayInputStream(data));
 
         // allocate and read the header slots of this page
+        //这里header是以byte为单位的，所以作为位图要自己搞位运算！
         header = new byte[getHeaderSize()];
         for (int i=0; i<header.length; i++)
             header[i] = dis.readByte();
@@ -55,6 +56,7 @@ public class HeapPage implements Page {
         tuples = new Tuple[numSlots];
         try{
             // allocate and read the actual records of this page
+//            System.out.println(tuples.length);
             for (int i=0; i<tuples.length; i++)
                 tuples[i] = readNextTuple(dis,i);
         }catch(NoSuchElementException e){
@@ -81,7 +83,7 @@ public class HeapPage implements Page {
      * Computes the number of bytes in the header of a page in a HeapFile with each tuple occupying tupleSize bytes
      * @return the number of bytes in the header of a page in a HeapFile with each tuple occupying tupleSize bytes
      */
-    private int getHeaderSize() {        
+    private int getHeaderSize() {
         return (int) Math.ceil((double) getNumTuples() / 8);
         // some code goes here
 //        return 0;
@@ -291,7 +293,11 @@ public class HeapPage implements Page {
         // some code goes here
         int cnt = 0;
         for(byte i:header){
-            if(i == 0)cnt++;
+            for(int j=0;j<8;j++){
+                if(((1<<j)&i)==0){
+                    cnt++;
+                }
+            }
         }
         return cnt;
     }
@@ -302,7 +308,8 @@ public class HeapPage implements Page {
     public boolean isSlotUsed(int i) {
         // some code goes here
 //        return false;
-        return header[i] == 1;
+//        System.out.println(header.length);
+        return (header[i/8] & (1<<(i%8))) != 0;
     }
 
     /**
@@ -319,8 +326,14 @@ public class HeapPage implements Page {
      */
     public Iterator<Tuple> iterator() {
         // some code goes here
-
-        return Arrays.asList(tuples).iterator();
+        //这里要把空的slot去掉
+        List<Tuple> tuples1 = new ArrayList<>();
+        for(Tuple t:tuples){
+            if(t != null){
+                tuples1.add(t);
+            }
+        }
+        return tuples1.iterator();
     }
 
 }
