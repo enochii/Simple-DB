@@ -326,6 +326,10 @@ public class HeapPage implements Page {
      */
     public Iterator<Tuple> iterator() {
         // some code goes here
+        return getTuples().iterator();
+    }
+
+    public List<Tuple> getTuples(){
         //这里要把空的slot去掉
         List<Tuple> tuples1 = new ArrayList<>();
         for(Tuple t:tuples){
@@ -333,8 +337,7 @@ public class HeapPage implements Page {
                 tuples1.add(t);
             }
         }
-        return tuples1.iterator();
+        return tuples1;
     }
-
 }
 
