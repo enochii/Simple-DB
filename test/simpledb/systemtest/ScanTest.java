@@ -49,9 +49,11 @@ public class ScanTest extends SimpleDbTestBase {
         HeapFile f = SystemTestUtil.createRandomHeapFile(2, 1000, null, tuples);
 
         TransactionId tid = new TransactionId();
+
         SeqScan scan = new SeqScan(tid, f.getId(), "table");
         scan.open();
         for (int i = 0; i < 100; ++i) {
+//            System.out.println(i);
             assertTrue(scan.hasNext());
             Tuple t = scan.next();
             assertEquals(tuples.get(i), SystemTestUtil.tupleToList(t));

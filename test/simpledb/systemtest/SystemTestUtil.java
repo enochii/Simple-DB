@@ -77,7 +77,8 @@ public class SystemTestUtil {
             }
             tuples.add(tuple);
         }
-
+        //todo
+//        System.out.println("Tuple Size: "+tuples.size());
         // Convert the tuples list to a heap file and open it
         File temp = File.createTempFile("table", ".dat");
         temp.deleteOnExit();
@@ -119,15 +120,22 @@ public class SystemTestUtil {
         }
 
         iterator.open();
+//        System.out.println(copy.size()+" "+tuples.size());
+        int cnt =0 ;
         while (iterator.hasNext()) {
+            cnt++;
             Tuple t = iterator.next();
             ArrayList<Integer> list = tupleToList(t);
+//            System.out.print(list);
             boolean isExpected = copy.remove(list);
+//            if(isExpected)copy.add(list);
             Debug.log("scanned tuple: %s (%s)", t, isExpected ? "expected" : "not expected");
             if (!isExpected) {
+//                System.out.println(cnt);
                 Assert.fail("expected tuples does not contain: " + t);
             }
         }
+//        System.out.println(cnt);
         iterator.close();
 
         if (!copy.isEmpty()) {

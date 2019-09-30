@@ -96,6 +96,7 @@ public class HeapFileEncoder {
           nrecbytes += typeAr[i].getLen();
       }
       int nrecords = (npagebytes * 8) /  (nrecbytes * 8 + 1);  //floor comes for free
+//      System.out.println("N Records: "+nrecords);
       
     //  per record, we need one bit; there are nrecords per page, so we need
     // nrecords bits, i.e., ((nrecords/32)+1) integers.
@@ -215,7 +216,8 @@ public class HeapFileEncoder {
             headerStream = new DataOutputStream(headerBAOS);
             pageBAOS = new ByteArrayOutputStream(npagebytes);
             pageStream = new DataOutputStream(pageBAOS);
-            
+
+//            System.out.println("RecordCount In Page "+ npages +": "+ recordcount);
             recordcount = 0;
             npages++;
         }

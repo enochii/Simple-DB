@@ -84,7 +84,7 @@ public class HeapFile implements DbFile {
             byte[] bytes = new byte[BufferPool.getPageSize()];
 
             int pgNo = pid.getPageNumber();
-
+            fi.skip(pgNo * BufferPool.getPageSize());
             // read bytes
             long readNum = fi.read(bytes);
             assert readNum == BufferPool.getPageSize();
@@ -150,11 +150,14 @@ public class HeapFile implements DbFile {
         public void open()
                 throws DbException, TransactionAbortedException{
             int numPg = hf.numPages();
+//            System.out.println("NumPage: "+ numPg);
             tuples = new ArrayList<>();
             for(int i=0;i < numPg;i++){
                 HeapPage page = (HeapPage)readPage(new HeapPageId(getId(),i));
+//                System.out.println(page.getTuples());
                 tuples.addAll((page.getTuples()));
             }
+//            System.out.println("HeapFile Size:" + tuples.size());
         }
 
         /** @return true if there are more tuples available, false if no more tuples or iterator isn't open. */

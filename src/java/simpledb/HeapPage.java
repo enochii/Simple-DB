@@ -332,11 +332,12 @@ public class HeapPage implements Page {
     public List<Tuple> getTuples(){
         //这里要把空的slot去掉
         List<Tuple> tuples1 = new ArrayList<>();
-        for(Tuple t:tuples){
-            if(t != null){
-                tuples1.add(t);
+        for(int i=0;i < numSlots;i++){
+            if(isSlotUsed(i)){
+                tuples1.add(tuples[i]);
             }
         }
+//        System.out.println("NumSlots: "+numSlots+" Not Null Tuples: "+tuples1.size());
         return tuples1;
     }
 }
