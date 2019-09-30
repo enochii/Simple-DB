@@ -3,6 +3,7 @@ package simpledb;
 import java.io.*;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -28,7 +29,7 @@ public class BufferPool {
     constructor instead. */
     public static final int DEFAULT_PAGES = 50;
 
-    public List<Page> pages;
+    private HashMap<PageId, Page> cache;
 
     /**
      * Creates a BufferPool that caches up to numPages pages.
@@ -37,9 +38,17 @@ public class BufferPool {
      */
     public BufferPool(int numPages) {
         // some code goes here
-        pages = new ArrayList<>();
+        cache = new HashMap<>();
     }
-    
+
+//    public void CachePage(PageId pageId, Page page){
+//        cache.put(pageId, page);
+//    }
+//
+//    public Page isPageCached(PageId pageId){
+//        return cache.get(pageId);
+//    }
+
     public static int getPageSize() {
       return pageSize;
     }
@@ -72,16 +81,17 @@ public class BufferPool {
     //这里没太懂其实
     public  Page getPage(TransactionId tid, PageId pid, Permissions perm)
         throws TransactionAbortedException, DbException {
-        for(Page page:pages){
-            if(page.getId().equals(pid)){
-                TransactionId transactionId;
-                //block
-                while ((transactionId=page.isDirty()) != null || transactionId != tid);
-                //
-                page.markDirty(true, tid);
-                return page;
-            }
+//        for(Page page:pages){
+        Page page = cache.get(pid);
+        if(page != null){
+            TransactionId transactionId;
+            //block
+            while ((transactionId=page.isDirty()) != null || transactionId != tid);
+            //
+            page.markDirty(true, tid);
+            return page;
         }
+//        }
         // some code goes here
         return null;
     }

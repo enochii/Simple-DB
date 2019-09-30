@@ -77,8 +77,12 @@ public class HeapFile implements DbFile {
     }
 
     // see DbFile.java for javadocs
+    //Here we need to Cache!!!!
     public Page readPage(PageId pid) {
+//        BufferPool bufferPool = Database.getBufferPool();
         Page page = null;
+//        if((page = bufferPool.isPageCached(pid))!=null)return page;
+
         try {
             FileInputStream fi = new FileInputStream(file);
             byte[] bytes = new byte[BufferPool.getPageSize()];
@@ -94,6 +98,7 @@ public class HeapFile implements DbFile {
             e.printStackTrace();
 //            return null;
         }
+//        bufferPool.CachePage(pid, page);
         return page;
     }
 
@@ -129,6 +134,8 @@ public class HeapFile implements DbFile {
         // not necessary for lab1
     }
 
+    // For Cache Test
+    private List<Tuple> cachedTuples;
     // see DbFile.java for javadocs
     public DbFileIterator iterator(TransactionId tid) {
         return new TupleIterator(this);
@@ -149,6 +156,10 @@ public class HeapFile implements DbFile {
          */
         public void open()
                 throws DbException, TransactionAbortedException{
+            if(hf.cachedTuples!=null){
+                tuples = hf.cachedTuples;
+                return;
+            }
             int numPg = hf.numPages();
 //            System.out.println("NumPage: "+ numPg);
             tuples = new ArrayList<>();
@@ -157,6 +168,7 @@ public class HeapFile implements DbFile {
 //                System.out.println(page.getTuples());
                 tuples.addAll((page.getTuples()));
             }
+            hf.cachedTuples = tuples;
 //            System.out.println("HeapFile Size:" + tuples.size());
         }
 

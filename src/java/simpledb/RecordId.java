@@ -52,6 +52,7 @@ public class RecordId implements Serializable {
     @Override
     public boolean equals(Object o) {
         // some code goes here
+        if(o==null)return false;
         RecordId rid = (RecordId)o;
         return rid.pid.equals(this.pid) && rid.tupleNo == this.tupleNo;
 //        throw new UnsupportedOperationException("implement this");
