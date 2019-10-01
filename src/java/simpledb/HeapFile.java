@@ -156,19 +156,26 @@ public class HeapFile implements DbFile {
          */
         public void open()
                 throws DbException, TransactionAbortedException{
-            if(hf.cachedTuples!=null){
-                tuples = hf.cachedTuples;
-                return;
-            }
+//            if(hf.cachedTuples!=null){
+//                tuples = hf.cachedTuples;
+//                return;
+//            }
             int numPg = hf.numPages();
 //            System.out.println("NumPage: "+ numPg);
             tuples = new ArrayList<>();
             for(int i=0;i < numPg;i++){
-                HeapPage page = (HeapPage)readPage(new HeapPageId(getId(),i));
+                HeapPageId heapPageId = new HeapPageId(getId(),i);
+
+                HeapPage heapPage = null;
+                if((heapPage = (HeapPage) Database.getBufferPool().isPageCached(heapPageId)) == null){
+                    heapPage = (HeapPage)readPage(heapPageId);
+                    Database.getBufferPool().CachePage(heapPageId, heapPage);
+                }
+
 //                System.out.println(page.getTuples());
-                tuples.addAll((page.getTuples()));
+                tuples.addAll((heapPage.getTuples()));
             }
-            hf.cachedTuples = tuples;
+//            hf.cachedTuples = tuples;
 //            System.out.println("HeapFile Size:" + tuples.size());
         }
 

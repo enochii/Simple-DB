@@ -41,13 +41,13 @@ public class BufferPool {
         cache = new HashMap<>();
     }
 
-//    public void CachePage(PageId pageId, Page page){
-//        cache.put(pageId, page);
-//    }
-//
-//    public Page isPageCached(PageId pageId){
-//        return cache.get(pageId);
-//    }
+    public void CachePage(PageId pageId, Page page){
+        cache.put(pageId, page);
+    }
+
+    public Page isPageCached(PageId pageId){
+        return cache.get(pageId);
+    }
 
     public static int getPageSize() {
       return pageSize;
