@@ -133,4 +133,12 @@ public class Tuple implements Serializable {
         // some code goes here
         this.td=td;
     }
+
+    /*
+     * @return
+     *          Number of field this tuple holds
+     */
+    public int getNumFields(){
+        return td.numFields();
+    }
 }
