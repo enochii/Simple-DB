@@ -195,7 +195,7 @@ public abstract class AggregateUtil{
                  gbres.setField(i++, key);
              }
              gbres.setField(i, new IntField(sum));
-//            System.out.print(sum);
+//            System.out.print("Sum: " + sum);
              tuples.add(gbres);
          }
 //         System.out.println();

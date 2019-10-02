@@ -2,6 +2,8 @@ package simpledb;
 
 import java.util.*;
 
+import static simpledb.Aggregator.NO_GROUPING;
+
 /**
  * The Aggregation operator that computes an aggregate (e.g., sum, avg, max,
  * min). Note that we only support aggregates over a single column, grouped by a
@@ -104,13 +106,23 @@ public class Aggregate extends Operator {
 	// some code goes here
         Aggregator aggregator = null;
         Type aggF =  td.getFieldType(afield);
+
+        Type gfType = gfield == NO_GROUPING ? null :  td.getFieldType(gfield);
+
         if(aggF == Type.INT_TYPE){
-            aggregator = new IntegerAggregator(gfield,td.getFieldType(gfield), afield, aop);
+            aggregator = new IntegerAggregator(gfield,gfType, afield, aop);
         }else{
-            throw new UnsupportedOperationException();
+            aggregator = new StringAggregator(gfield,gfType,afield,aop);
+        }
+        child.open();
+        while (child.hasNext()){
+//            System.out.println("填充子弹");
+            aggregator.mergeTupleIntoGroup(child.next());
         }
         //
+        super.open();
         gbiOpIterator = aggregator.iterator();
+        gbiOpIterator.open();
     }
 
     /**
@@ -151,6 +163,7 @@ public class Aggregate extends Operator {
 
     public void close() {
 	// some code goes here
+        super.close();
         gbiOpIterator.close();
     }
 
