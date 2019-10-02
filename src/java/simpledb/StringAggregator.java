@@ -1,5 +1,9 @@
 package simpledb;
 
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
 /**
  * Knows how to compute some aggregate over a set of StringFields.
  */
@@ -41,4 +45,7 @@ public class StringAggregator implements Aggregator {
         throw new UnsupportedOperationException("please implement me for lab2");
     }
 
+    public Set<Map.Entry<Field, List<Tuple>> > getEntrySet(){
+        return null;
+    }
 }

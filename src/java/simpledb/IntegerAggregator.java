@@ -1,11 +1,21 @@
 package simpledb;
 
+import java.util.*;
+
 /**
  * Knows how to compute some aggregate over a set of IntFields.
  */
 public class IntegerAggregator implements Aggregator {
 
     private static final long serialVersionUID = 1L;
+
+    private int gbField;
+    private Type gbFieldType;
+    private int aggField;
+    private Op op;
+
+    // gbAttribute -> hashCode?
+    private HashMap<Field, List<Tuple>> groups;
 
     /**
      * Aggregate constructor
@@ -24,6 +34,11 @@ public class IntegerAggregator implements Aggregator {
 
     public IntegerAggregator(int gbfield, Type gbfieldtype, int afield, Op what) {
         // some code goes here
+        this.gbField = gbfield;
+        this.gbFieldType = gbfieldtype;
+        this.aggField = afield;
+        this.op = what;
+        this.groups = new HashMap<>();
     }
 
     /**
@@ -35,6 +50,18 @@ public class IntegerAggregator implements Aggregator {
      */
     public void mergeTupleIntoGroup(Tuple tup) {
         // some code goes here
+        //试图抹掉NO_GROUPING和GROUPING的差距
+        //TODO: 当没有group可以不用HashMap
+        Field key = null;
+        if(gbField == NO_GROUPING){
+            key = new IntField(NO_GROUPING);
+        }else{
+            key = tup.getField(gbField);
+        }
+
+        //nb
+        List<Tuple> group = groups.computeIfAbsent(key, k -> new ArrayList<>());
+        group.add(tup);
     }
 
     /**
@@ -47,8 +74,20 @@ public class IntegerAggregator implements Aggregator {
      */
     public OpIterator iterator() {
         // some code goes here
-        throw new
-        UnsupportedOperationException("please implement me for lab2");
+        Tuple tuple;
+        // Integer的Aggregate结果必为int
+
+        AggregateUtil TDUtil = AggregateUtil.getAggUtil(op, gbFieldType, Type.INT_TYPE, this, aggField);
+        TupleDesc td = TDUtil.getTupleDesc();
+
+        List<Tuple> res = TDUtil.AggregateEval();
+
+        return new GBIOpIterator(res, td);
+    }
+
+    @Override
+    public Set<Map.Entry<Field, List<Tuple> > > getEntrySet(){
+        return groups.entrySet();
     }
 
 }

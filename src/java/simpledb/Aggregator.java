@@ -1,6 +1,9 @@
 package simpledb;
 
 import java.io.Serializable;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * The common interface for any class that can compute an aggregate over a
@@ -81,5 +84,6 @@ public interface Aggregator extends Serializable {
      * @see simpledb.TupleIterator for a possible helper
      */
     public OpIterator iterator();
-    
+
+    abstract public Set<Map.Entry<Field, List<Tuple>> > getEntrySet();
 }

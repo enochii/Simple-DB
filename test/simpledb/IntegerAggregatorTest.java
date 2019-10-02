@@ -71,7 +71,9 @@ public class IntegerAggregatorTest extends SimpleDbTestBase {
     IntegerAggregator agg = new IntegerAggregator(0, Type.INT_TYPE, 1, Aggregator.Op.SUM);
     
     for (int[] step : sum) {
-      agg.mergeTupleIntoGroup(scan1.next());
+        Tuple test = scan1.next();
+//        System.out.println("Tuple: " + test);
+      agg.mergeTupleIntoGroup(test);
       OpIterator it = agg.iterator();
       it.open();
       TestUtil.matchAllTuples(TestUtil.createTupleList(width1, step), it);

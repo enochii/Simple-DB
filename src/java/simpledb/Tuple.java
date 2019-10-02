@@ -107,7 +107,7 @@ public class Tuple implements Serializable {
         // StringBuilder is not thread-safe
         StringBuilder sb = new StringBuilder("");
         for(Field fd:fields){
-            sb.append(fd.toString());
+            sb.append(fd.toString() + " ");
         }
 
         return sb.toString();

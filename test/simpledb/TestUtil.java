@@ -142,7 +142,7 @@ public class TestUtil {
                     break;
                 }
             }
-
+//            System.out.println(expectedTup);
             if (!matched) {
                 throw new RuntimeException("expected tuple not found: " + expectedTup);
             }
