@@ -74,7 +74,7 @@ public class IntegerAggregator implements Aggregator {
      */
     public OpIterator iterator() {
         // some code goes here
-        Tuple tuple;
+//        Tuple tuple;
         // Integer的Aggregate结果必为int
 
         AggregateUtil TDUtil = AggregateUtil.getAggUtil(op, gbFieldType, Type.INT_TYPE, this, aggField);
