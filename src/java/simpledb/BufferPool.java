@@ -81,19 +81,14 @@ public class BufferPool {
     //这里没太懂其实
     public  Page getPage(TransactionId tid, PageId pid, Permissions perm)
         throws TransactionAbortedException, DbException {
-//        for(Page page:pages){
         Page page = cache.get(pid);
-        if(page != null){
-            TransactionId transactionId;
-            //block
-            while ((transactionId=page.isDirty()) != null || transactionId != tid);
-            //
-            page.markDirty(true, tid);
-            return page;
+        if(page == null){
+            page = Database.getCatalog().getDatabaseFile(pid.getTableId()).readPage(pid);
+            CachePage(pid, page);
         }
-//        }
+
         // some code goes here
-        return null;
+        return page;
     }
 
     /**

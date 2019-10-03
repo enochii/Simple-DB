@@ -138,17 +138,19 @@ public class HeapFile implements DbFile {
     private List<Tuple> cachedTuples;
     // see DbFile.java for javadocs
     public DbFileIterator iterator(TransactionId tid) {
-        return new TupleIterator(this);
+        return new TupleIterator(this, tid);
     }
 
     public class TupleIterator implements DbFileIterator{
         HeapFile hf;
         private List<Tuple> tuples;
         private int pos = 0;
+        private TransactionId tid;
 
-        TupleIterator(HeapFile hf){
+        TupleIterator(HeapFile hf, TransactionId tid){
             // some code goes here
             this.hf = hf;
+            this.tid = tid;
         }
         /**
          * Opens the iterator
@@ -167,10 +169,9 @@ public class HeapFile implements DbFile {
                 HeapPageId heapPageId = new HeapPageId(getId(),i);
 
                 HeapPage heapPage = null;
-                if((heapPage = (HeapPage) Database.getBufferPool().isPageCached(heapPageId)) == null){
-                    heapPage = (HeapPage)readPage(heapPageId);
-                    Database.getBufferPool().CachePage(heapPageId, heapPage);
-                }
+                heapPage = (HeapPage) Database.getBufferPool().getPage(tid, heapPageId,Permissions.READ_ONLY);
+//                    heapPage = (HeapPage)readPage(heapPageId);
+//                    Database.getBufferPool().CachePage(heapPageId, heapPage);
 
 //                System.out.println(page.getTuples());
                 tuples.addAll((heapPage.getTuples()));
