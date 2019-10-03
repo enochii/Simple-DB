@@ -45,9 +45,9 @@ public class BufferPool {
         cache.put(pageId, page);
     }
 
-    public Page isPageCached(PageId pageId){
-        return cache.get(pageId);
-    }
+//    public Page isPageCached(PageId pageId){
+//        return cache.get(pageId);
+//    }
 
     public static int getPageSize() {
       return pageSize;
@@ -154,6 +154,9 @@ public class BufferPool {
         throws DbException, IOException, TransactionAbortedException {
         // some code goes here
         // not necessary for lab1
+        //这个tuple的RecordId应该认为是无效的？
+        HeapFile heapFile = (HeapFile) Database.getCatalog().getDatabaseFile(tableId);
+        updateCachedPages(heapFile.insertTuple(tid, t));
     }
 
     /**
@@ -173,6 +176,18 @@ public class BufferPool {
         throws DbException, IOException, TransactionAbortedException {
         // some code goes here
         // not necessary for lab1
+        HeapFile heapFile = (HeapFile) Database.getCatalog().getDatabaseFile(t.getRecordId().getPageId().getTableId());
+        List<Page> updatedPages = heapFile.deleteTuple(tid, t);
+
+        updateCachedPages(updatedPages);
+    }
+
+    // 注意要update，因为可能你还没访问过一个Page，然后你插入/删除元组使得他发生了改变
+    // 那么你有两个选择，把它cache到buffer pool或者flush到disk
+    private void updateCachedPages(List<Page> pages){
+        for(Page page:pages){
+            CachePage(page.getId(),page);
+        }
     }
 
     /**
