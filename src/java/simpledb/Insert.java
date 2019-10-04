@@ -1,13 +1,26 @@
 package simpledb;
 
+import java.io.IOException;
+
 /**
  * Inserts tuples read from the child operator into the tableId specified in the
  * constructor
  */
+/*
+ * 在这里思考的一个小问题是，插入的逻辑应该写在哪里 Insert的构造函数或者是在openLimian
+ * 后面有setChild，也就是你应该是可以动态改变你的数据源的，如果逻辑写在构造函数就没有意义了？
+ * 写在open的话又会存在副作用，需要写逻辑去避免啥的....
+ */
+
 public class Insert extends Operator {
 
     private static final long serialVersionUID = 1L;
 
+    private TupleDesc td;
+    private int insertedNum;
+    private Tuple tuple;
+
+    private OpIterator child;
     /**
      * Constructor.
      *
@@ -22,25 +35,46 @@ public class Insert extends Operator {
      *             insert.
      */
     public Insert(TransactionId t, OpIterator child, int tableId)
-            throws DbException {
+            throws DbException, TransactionAbortedException {
         // some code goes here
+        this.child = child;
+        insertedNum = 0;
+
+        child.open();
+        while (child.hasNext()){
+            try {
+                Database.getBufferPool().insertTuple(t,tableId,child.next());
+            } catch (IOException e) {
+                throw new DbException("IOExpection");
+            }
+            insertedNum ++;
+        }
+        child.close();
+        td = new TupleDesc(new Type[]{Type.INT_TYPE});
+        tuple = new Tuple(td);
+        tuple.setField(0,new IntField(insertedNum));
     }
 
     public TupleDesc getTupleDesc() {
         // some code goes here
-        return null;
+        return td;
     }
 
+    int pos = 0;
     public void open() throws DbException, TransactionAbortedException {
         // some code goes here
+        super.open();
     }
 
     public void close() {
         // some code goes here
+        super.close();
+        pos = 1;
     }
 
     public void rewind() throws DbException, TransactionAbortedException {
         // some code goes here
+        pos = 0;
     }
 
     /**
@@ -58,17 +92,23 @@ public class Insert extends Operator {
      */
     protected Tuple fetchNext() throws TransactionAbortedException, DbException {
         // some code goes here
-        return null;
+        if(pos == 0){
+            pos++;
+            return tuple;
+        }else{
+            return null;
+        }
     }
 
     @Override
     public OpIterator[] getChildren() {
         // some code goes here
-        return null;
+        return new OpIterator[]{child};
     }
 
     @Override
     public void setChildren(OpIterator[] children) {
         // some code goes here
+        throw new UnsupportedOperationException();
     }
 }
