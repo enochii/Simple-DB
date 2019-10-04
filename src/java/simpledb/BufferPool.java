@@ -2,10 +2,10 @@ package simpledb;
 
 import java.io.*;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+
+import static java.time.chrono.JapaneseEra.values;
 
 /**
  * BufferPool manages the reading and writing of pages into memory from
@@ -30,6 +30,7 @@ public class BufferPool {
     public static final int DEFAULT_PAGES = 50;
 
     private HashMap<PageId, Page> cache;
+    private int pageLimit;
 
     /**
      * Creates a BufferPool that caches up to numPages pages.
@@ -39,9 +40,16 @@ public class BufferPool {
     public BufferPool(int numPages) {
         // some code goes here
         cache = new HashMap<>();
+        pageLimit = numPages;
     }
 
-    public void CachePage(PageId pageId, Page page){
+    private void CachePage(PageId pageId, Page page) throws DbException {
+        //if not contains now and pool is full
+        //call evictPage()
+        if(!cache.containsKey(pageId) && cache.size() >= pageLimit){
+            assert cache.size() == pageLimit;
+            evictPage();
+        }
         cache.put(pageId, page);
     }
 
@@ -184,7 +192,7 @@ public class BufferPool {
 
     // 注意要update，因为可能你还没访问过一个Page，然后你插入/删除元组使得他发生了改变
     // 那么你有两个选择，把它cache到buffer pool或者flush到disk
-    private void updateCachedPages(List<Page> pages){
+    private void updateCachedPages(List<Page> pages) throws DbException {
         for(Page page:pages){
             CachePage(page.getId(),page);
         }
@@ -198,7 +206,14 @@ public class BufferPool {
     public synchronized void flushAllPages() throws IOException {
         // some code goes here
         // not necessary for lab1
+        Collection<Page> pages =  cache.values();
+        for(Page page: pages){
+            flushPage(page);
+        }
+    }
 
+    private synchronized void flushPage(Page page) throws IOException {
+        Database.getCatalog().getDatabaseFile(page.getId()).writePage(page);
     }
 
     /** Remove the specific page id from the buffer pool.
@@ -209,9 +224,11 @@ public class BufferPool {
         Also used by B+ tree files to ensure that deleted pages
         are removed from the cache so they can be reused safely
     */
+    //Hint: remove a page from the buffer pool **without** flushing it to disk.
     public synchronized void discardPage(PageId pid) {
         // some code goes here
         // not necessary for lab1
+        cache.remove(pid);
     }
 
     /**
@@ -221,6 +238,8 @@ public class BufferPool {
     private synchronized  void flushPage(PageId pid) throws IOException {
         // some code goes here
         // not necessary for lab1
+        //todo: need to use transaction?
+        flushPage(cache.get(pid));
     }
 
     /** Write all pages of the specified transaction to disk.
@@ -228,15 +247,40 @@ public class BufferPool {
     public synchronized  void flushPages(TransactionId tid) throws IOException {
         // some code goes here
         // not necessary for lab1|lab2
+        Collection<Page> pagesByTs = cache.values();
+        for(Page page:pagesByTs){
+            if(tid.equals(page.isDirty())){
+                flushPage(page);
+            }
+        }
     }
 
     /**
      * Discards a page from the buffer pool.
      * Flushes the page to disk to ensure dirty pages are updated on disk.
      */
-    private synchronized  void evictPage() throws DbException {
+    private synchronized  void evictPage() throws DbException{
         // some code goes here
         // not necessary for lab1
+        PageId pageId = evictPolicy();
+        Page page = cache.get(pageId);
+
+        try {
+            Database.getCatalog().getDatabaseFile(pageId).writePage(page);
+        } catch (IOException e) {
+            throw new DbException("IOExp when evict");
+        }
+        discardPage(pageId);
     }
 
+    /*
+     * Random Policy................................
+     */
+    private PageId evictPolicy(){
+        Set<PageId> pageIds_ = cache.keySet();
+        Object[] pageIds =  pageIds_.toArray();
+
+        int i = Math.abs(new Random().nextInt()) % pageIds.length;
+        return (PageId) pageIds[i];
+    }
 }

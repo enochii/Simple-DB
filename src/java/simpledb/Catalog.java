@@ -126,6 +126,10 @@ public class Catalog {
         throw new NoSuchElementException();
     }
 
+    public DbFile getDatabaseFile(PageId pageId){
+        return getDatabaseFile(pageId.getTableId());
+    }
+
     public String getPrimaryKey(int tableid) {
         // some code goes here
         for(DBItem item:dbItems){
