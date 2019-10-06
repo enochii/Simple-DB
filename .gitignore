@@ -10,3 +10,5 @@ out/
 
 data.txt
 test.java
+*.MF
+db.jar
