@@ -1,5 +1,6 @@
 package simpledb;
 
+
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -31,13 +32,7 @@ public class TableStats {
             java.lang.reflect.Field statsMapF = TableStats.class.getDeclaredField("statsMap");
             statsMapF.setAccessible(true);
             statsMapF.set(null, s);
-        } catch (NoSuchFieldException e) {
-            e.printStackTrace();
-        } catch (SecurityException e) {
-            e.printStackTrace();
-        } catch (IllegalArgumentException e) {
-            e.printStackTrace();
-        } catch (IllegalAccessException e) {
+        } catch (NoSuchFieldException | SecurityException | IllegalArgumentException | IllegalAccessException e) {
             e.printStackTrace();
         }
 
@@ -66,6 +61,14 @@ public class TableStats {
      */
     static final int NUM_HIST_BINS = 100;
 
+    private int numPages;
+    private int numTuples;
+//    private HeapFile heapFile;
+    private Histogram[] histograms;
+    private TupleDesc tupleDesc;
+    private DbFileIterator iterator;
+    private int ioCostPerPage;
+
     /**
      * Create a new TableStats object, that keeps track of statistics on each
      * column of a table
@@ -85,6 +88,25 @@ public class TableStats {
         // necessarily have to (for example) do everything
         // in a single scan of the table.
         // some code goes here
+        HeapFile heapFile = (HeapFile)Database.getCatalog().getDatabaseFile(tableid);
+        this.numPages = heapFile.numPages();
+        this.numTuples = 0;
+//        DbFileIterator dbFileIterator =  heapFile.iterator(null);
+//        this.heapFile = heapFile;
+        this.histograms = new Histogram[heapFile.getTupleDesc().numFields()];
+        this.iterator = heapFile.iterator(null);
+        this.tupleDesc = heapFile.getTupleDesc();
+        this.ioCostPerPage = ioCostPerPage;
+        try {
+            iterator.open();
+            while (iterator.hasNext()){
+                numTuples ++;
+                iterator.next();
+            }
+        } catch (DbException | TransactionAbortedException e) {
+            e.printStackTrace();
+        }
+
     }
 
     /**
@@ -101,7 +123,7 @@ public class TableStats {
      */
     public double estimateScanCost() {
         // some code goes here
-        return 0;
+        return numPages * ioCostPerPage;
     }
 
     /**
@@ -115,7 +137,7 @@ public class TableStats {
      */
     public int estimateTableCardinality(double selectivityFactor) {
         // some code goes here
-        return 0;
+        return (int)(selectivityFactor * numTuples);
     }
 
     /**
@@ -130,7 +152,45 @@ public class TableStats {
      * */
     public double avgSelectivity(int field, Predicate.Op op) {
         // some code goes here
-        return 1.0;
+        if(histograms[field] == null){
+            initHistogram(field);
+        }
+        return histograms[field].avgSelectivity();
+    }
+
+    private void initHistogram(int field){
+        assert histograms[field] == null;
+        Type type = tupleDesc.getFieldType(field);
+
+        int bucket = NUM_HIST_BINS;
+//        bucket = bucket > 10?bucket:10;
+        try {
+//            iterator.open();
+            if(type == Type.INT_TYPE){
+                int max = Integer.MIN_VALUE, min = Integer.MAX_VALUE;
+                iterator.rewind();
+                while (iterator.hasNext()){
+                    Tuple tuple = iterator.next();
+                    int val = ((IntField)(tuple.getField(field))).getValue();
+                    max = Integer.max(val, max);
+                    min = Integer.min(val, min);
+                }
+
+                histograms[field] = new IntHistogram(bucket,min,max);
+            }else {
+                //todo : more accurate buckets
+                histograms[field] = new StringHistogram(bucket);
+            }
+            //addValue
+            iterator.rewind();
+            while (iterator.hasNext()){
+                Tuple tuple = iterator.next();
+                histograms[field].addValue(tuple.getField(field));
+            }
+
+        } catch (DbException | TransactionAbortedException e) {
+            e.printStackTrace();
+        }
     }
 
     /**
@@ -148,7 +208,11 @@ public class TableStats {
      */
     public double estimateSelectivity(int field, Predicate.Op op, Field constant) {
         // some code goes here
-        return 1.0;
+        if(histograms[field]==null){
+            initHistogram(field);
+        }
+
+        return histograms[field].estimateSelectivity(op,constant);
     }
 
     /**
@@ -156,7 +220,7 @@ public class TableStats {
      * */
     public int totalTuples() {
         // some code goes here
-        return 0;
+        return numTuples;
     }
 
 }

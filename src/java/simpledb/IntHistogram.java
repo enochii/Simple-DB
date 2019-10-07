@@ -9,7 +9,7 @@ import static simpledb.Predicate.Op.*;
 
 /** A class to represent a fixed-width histogram over a single integer-based field.
  */
-public class IntHistogram {
+public class IntHistogram implements Histogram{
 
     // Interval Length per Bucket
     private int intervalLen;
@@ -105,6 +105,7 @@ public class IntHistogram {
      *     join optimization. It may be needed if you want to
      *     implement a more efficient optimization
      * */
+    @Override
     public double avgSelectivity()
     {
         // some code goes here
@@ -126,6 +127,17 @@ public class IntHistogram {
     }
 
     /*
+     * Wrapper Class for general purpose, implement the Histogram interface
+     */
+    @Override
+    public double estimateSelectivity(Predicate.Op op, Field field){
+        return this.estimateSelectivity(op, ((IntField)field).getValue());
+    }
+    public void addValue(Field field){
+        this.addValue(((IntField)field).getValue());
+    }
+
+    /*
      * Estimator
      */
 
@@ -142,7 +154,7 @@ public class IntHistogram {
             super(intHistogram);
         }
         double estimateSelectivity(Predicate.Op op, int v){
-            if(v < min){
+            if(v <= min){
                 return 0.0;
             }else if(v > max){
                 return 1.0;
@@ -155,7 +167,7 @@ public class IntHistogram {
                 ret += fields.get(i).size();
             }
 
-            ret += equal * (v - index * intervalLen);
+            ret += equal * (v - (index * intervalLen + min));
             return ret / size();
         }
     }
@@ -167,7 +179,7 @@ public class IntHistogram {
         double estimateSelectivity(Predicate.Op op, int v){
             if(v < min){
                 return 1.0;
-            }else if(v > max){
+            }else if(v >= max){
                 return 0.0;
             }
             int index = bucketIndex(v);
@@ -177,7 +189,7 @@ public class IntHistogram {
             for(int i=index+1;i<fields.size();i++){
                 ret += fields.get(i).size();
             }
-            ret += equal * ((index + 1) * intervalLen-v);// greater than val && in the same bucket as val
+            ret += equal * ((index + 1) * intervalLen + min - 1 - v);// greater than val && in the same bucket as val
 
             return ret / size();
         }

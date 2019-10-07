@@ -4,7 +4,7 @@ package simpledb;
  * A class to represent a fixed-width histogram over a single String-based
  * field.
  */
-public class StringHistogram {
+public class StringHistogram implements Histogram{
     final IntHistogram hist;
 
     /**
@@ -86,7 +86,16 @@ public class StringHistogram {
      *         optimization. It may be needed if you want to implement a more
      *         efficient optimization
      * */
+    @Override
     public double avgSelectivity() {
         return hist.avgSelectivity();
+    }
+
+    public double estimateSelectivity(Predicate.Op op, Field field){
+        return this.estimateSelectivity(op, ((StringField)field).getValue());
+    }
+//    public double avgSelectivity();
+    public void addValue(Field field){
+        this.addValue(((StringField)field).getValue());
     }
 }
