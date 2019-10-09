@@ -172,6 +172,7 @@ public class JoinOptimizer {
     /**
      * Helper method to enumerate all of the subsets of a given size of a
      * specified vector.
+     * when size = 0, will return { {} }
      * 
      * @param v
      *            The vector whose subsets are desired
@@ -227,10 +228,49 @@ public class JoinOptimizer {
             HashMap<String, Double> filterSelectivities, boolean explain)
             throws ParsingException {
         //Not necessary for labs 1--3
+        for(LogicalJoinNode node : joins){
+            if(!stats.containsKey(node.t1Alias) || !stats.containsKey(node.t2Alias) ||
+            !filterSelectivities.containsKey(node.t1Alias) || !filterSelectivities.containsKey(node.t2Alias)
+            ){
+                throw new ParsingException("No Such Field!");
+            }
+        }
 
-        // some code goes here
-        //Replace the following
-        return joins;
+        int size = stats.size();
+        assert size == filterSelectivities.size();
+
+        PlanCache planCache = new PlanCache();
+//        planCache.addPlan(new HashSet<>(),0,0,new Vector<>());
+
+//        Set<LogicalJoinNode> joinNodes = null;
+        for(int i=0;i<size;i++){
+            Set<Set<LogicalJoinNode>> setSet = enumerateSubsets(joins, i+1);
+            for(Set<LogicalJoinNode> set : setSet){
+//                if(size == i+1){
+//                    joinNodes = set;
+//                }
+                //Compute bestPlan for set by sub plan
+                CostCard bestPlan = null;
+                double bestCost = Double.MAX_VALUE;
+
+                for(LogicalJoinNode node:set){
+                    CostCard costCard = computeCostAndCardOfSubplan(stats, filterSelectivities, node, set,bestCost,planCache);
+                    if(costCard != null && costCard.cost < bestCost){
+                        bestPlan = costCard;
+                        bestCost = costCard.cost;
+                    }
+                }
+//                assert bestPlan != null;
+                if(bestPlan != null)planCache.addPlan(set,bestPlan.cost,bestPlan.card,bestPlan.plan);
+            }
+        }
+        if(explain){
+            printJoins(joins,planCache,stats,filterSelectivities);
+        }
+
+        Set<LogicalJoinNode> nodes = new HashSet<>(joins);
+//        assert joinNodes.equals(nodes);
+        return planCache.getOrder(nodes);
     }
 
     // ===================== Private Methods =================================
