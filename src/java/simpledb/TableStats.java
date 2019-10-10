@@ -69,6 +69,9 @@ public class TableStats {
     private DbFileIterator iterator;
     private int ioCostPerPage;
 
+    private Map<Integer, Integer> maxs;
+    private Map<Integer, Integer> mins;
+
     /**
      * Create a new TableStats object, that keeps track of statistics on each
      * column of a table
@@ -97,12 +100,36 @@ public class TableStats {
         this.iterator = heapFile.iterator(null);
         this.tupleDesc = heapFile.getTupleDesc();
         this.ioCostPerPage = ioCostPerPage;
+
+        maxs = new HashMap<>();
+        mins = new HashMap<>();
+
+        for(int i=0;i<tupleDesc.numFields();i++){
+            if(tupleDesc.getFieldType(i) == Type.STRING_TYPE)continue;
+            maxs.put(i, Integer.MIN_VALUE);
+            mins.put(i, Integer.MAX_VALUE);
+        }
+
         try {
             iterator.open();
             while (iterator.hasNext()){
                 numTuples ++;
-                iterator.next();
+                Tuple tuple = iterator.next();
+                for(int i=0;i<tupleDesc.numFields();i++){
+                    if(tupleDesc.getFieldType(i).equals(Type.INT_TYPE)){
+                        IntField intField = (IntField)tuple.getField(i);
+                        int val = intField.getValue();
+                        if (maxs.get(i) < val){
+                            maxs.put(i, val);
+                        }
+                        if (mins.get(i) > val){
+                            mins.put(i, val);
+                        }
+//                        mins.put(i, Integer.min(mins.get(i), ((IntField)tuple.getField(i)).getValue()));
+                    }
+                }
             }
+            initHistogram();
         } catch (DbException | TransactionAbortedException e) {
             e.printStackTrace();
         }
@@ -151,41 +178,30 @@ public class TableStats {
      * expected selectivity. You may estimate this value from the histograms.
      * */
     public double avgSelectivity(int field, Predicate.Op op) {
-        // some code goes here
-        if(histograms[field] == null){
-            initHistogram(field);
-        }
         return histograms[field].avgSelectivity();
     }
 
-    private void initHistogram(int field){
-        assert histograms[field] == null;
-        Type type = tupleDesc.getFieldType(field);
-
+    private void initHistogram(){
         int bucket = NUM_HIST_BINS;
 //        bucket = bucket > 10?bucket:10;
         try {
 //            iterator.open();
-            if(type == Type.INT_TYPE){
-                int max = Integer.MIN_VALUE, min = Integer.MAX_VALUE;
-                iterator.rewind();
-                while (iterator.hasNext()){
-                    Tuple tuple = iterator.next();
-                    int val = ((IntField)(tuple.getField(field))).getValue();
-                    max = Integer.max(val, max);
-                    min = Integer.min(val, min);
+            for(int i=0;i<tupleDesc.numFields();i++){
+                if(tupleDesc.getFieldType(i) == Type.INT_TYPE){
+                    histograms[i] = new IntHistogram(bucket,mins.get(i),maxs.get(i));
+//                histograms[field] = new IntHistogram(bucket,min,max);
+                }else {
+                    //todo : more accurate buckets
+                    histograms[i] = new StringHistogram(bucket);
                 }
-
-                histograms[field] = new IntHistogram(bucket,min,max);
-            }else {
-                //todo : more accurate buckets
-                histograms[field] = new StringHistogram(bucket);
             }
             //addValue
             iterator.rewind();
             while (iterator.hasNext()){
                 Tuple tuple = iterator.next();
-                histograms[field].addValue(tuple.getField(field));
+                for(int i=0;i<tupleDesc.numFields();i++){
+                    histograms[i].addValue(tuple.getField(i));
+                }
             }
 
         } catch (DbException | TransactionAbortedException e) {
@@ -207,11 +223,6 @@ public class TableStats {
      *         predicate
      */
     public double estimateSelectivity(int field, Predicate.Op op, Field constant) {
-        // some code goes here
-        if(histograms[field]==null){
-            initHistogram(field);
-        }
-
         return histograms[field].estimateSelectivity(op,constant);
     }
 

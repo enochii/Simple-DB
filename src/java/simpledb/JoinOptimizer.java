@@ -269,7 +269,8 @@ public class JoinOptimizer {
         }
 
         Set<LogicalJoinNode> nodes = new HashSet<>(joins);
-//        assert joinNodes.equals(nodes);
+//        System.out.println(joinNodes);
+//        System.out.println(nodes);
         return planCache.getOrder(nodes);
     }
 

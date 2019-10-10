@@ -47,7 +47,7 @@ public class TableStatsTest extends SimpleDbTestBase {
 	 *   +linear in IO_COST when numPages is constant
 	 *   +quadratic when IO_COST and numPages increase linearly.
 	 */
-	@Test public void estimateScanCostTest() throws IOException, DbException, TransactionAbortedException {
+	@Test public void gitestimateScanCostTest() throws IOException, DbException, TransactionAbortedException {
 		Object[] ret;
 		int[] ioCosts = new int[20];
 		int[] pageNums = new int[ioCosts.length];
