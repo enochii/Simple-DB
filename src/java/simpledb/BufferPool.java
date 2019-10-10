@@ -41,6 +41,7 @@ public class BufferPool {
         // some code goes here
         cache = new HashMap<>();
         pageLimit = numPages;
+        LockManager.removeAll();
     }
 
     private void CachePage(PageId pageId, Page page) throws DbException {
@@ -86,16 +87,52 @@ public class BufferPool {
      * @param pid the ID of the requested page
      * @param perm the requested permissions on the page
      */
-    //这里没太懂其实
-    public  Page getPage(TransactionId tid, PageId pid, Permissions perm)
+    public  synchronized Page getPage(TransactionId tid, PageId pid, Permissions perm)
         throws TransactionAbortedException, DbException {
+        //获取Lock 只能在getPage()?
         Page page = cache.get(pid);
         if(page == null){
             page = Database.getCatalog().getDatabaseFile(pid.getTableId()).readPage(pid);
             CachePage(pid, page);
         }
 
+//        System.out.println(tid.hashCode() + " " + page.getId().hashCode() + " " + perm);
+
+        Set<Lock> locks = LockManager.getLocks(pid);
+        if(locks != null){
+            if (perm == Permissions.READ_ONLY){
+                boolean flag;
+                do{
+                    flag = true;
+//                    System.out.println(locks.size());
+                    for(Lock lock:locks){
+                        //如果该页面被其他进程占用
+//                        System.out.println("?");
+                        if(lock.permissions == Permissions.READ_WRITE && !lock.transactionId.equals(tid)){
+//                            System.out.println(lock.transactionId.hashCode() +" | " + tid.hashCode());
+                            flag = false;
+                        }
+                    }
+                }while (!flag);
+//                System.out.println("R");
+
+            }else {
+                boolean flag;
+                do{
+                    flag = true;
+//                    System.out.println(locks.size());
+                    for(Lock lock:locks){
+                        if(!lock.transactionId.equals(tid)){
+                            flag = false;
+                        }
+                    }
+//                    System.out.println("W");
+                }while (!flag);
+            }
+        }
+
         // some code goes here
+        LockManager.addLock(pid, tid,perm);
         return page;
     }
 
@@ -108,9 +145,10 @@ public class BufferPool {
      * @param tid the ID of the transaction requesting the unlock
      * @param pid the ID of the page to unlock
      */
-    public  void releasePage(TransactionId tid, PageId pid) {
+    public  synchronized void releasePage(TransactionId tid, PageId pid) throws TransactionAbortedException, DbException {
         // some code goes here
         // not necessary for lab1|lab2
+        LockManager.removeLock(pid, tid);
     }
 
     /**
@@ -124,9 +162,15 @@ public class BufferPool {
     }
 
     /** Return true if the specified transaction has a lock on the specified page */
-    public boolean holdsLock(TransactionId tid, PageId p) {
+    public boolean holdsLock(TransactionId tid, PageId pid) throws TransactionAbortedException, DbException {
         // some code goes here
         // not necessary for lab1|lab2
+        Set<Lock> locks = LockManager.getLocks(pid);
+        for(Lock lock: locks){
+            if(lock.transactionId.equals(tid)){
+                return true;
+            }
+        }
         return false;
     }
 
