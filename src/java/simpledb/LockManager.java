@@ -3,9 +3,9 @@ package simpledb;
 import java.util.*;
 
 public class LockManager {
-    private static Map<PageId, Set<Lock>> transactionLocks = new HashMap<>();
+    private  Map<PageId, Set<Lock>> transactionLocks = new HashMap<>();
 
-    public synchronized static void addLock(PageId pageId, TransactionId transactionId, Permissions permissions){
+    public  synchronized void addLock(PageId pageId, TransactionId transactionId, Permissions permissions){
         Set<Lock> locks = transactionLocks.computeIfAbsent(pageId, k -> new HashSet<>());
 
 //        locks.add(new Lock(permissions, transactionId));
@@ -23,8 +23,8 @@ public class LockManager {
         locks.add(new Lock(permissions, transactionId));
     }
 
-    public synchronized static void removeLock(PageId pageId, TransactionId transactionId){
-        Set<Lock> locks = LockManager.getLocks(pageId);
+    public  synchronized void removeLock(PageId pageId, TransactionId transactionId){
+        Set<Lock> locks = getLocks(pageId);
         for(Lock lock: locks){
             if(lock.transactionId.equals(transactionId)){
                 locks.remove(lock);
@@ -33,19 +33,19 @@ public class LockManager {
         }
     }
 
-    public static Set<Lock> getLocks(PageId pageId){
+    public  synchronized Set<Lock> getLocks(PageId pageId){
         return transactionLocks.get(pageId);
     }
 
     // ....
     //Lock的管理和BufferPool是默认绑定的
     //至少testcase是这么认为...
-    public static void removeAll(){
+    public  synchronized void removeAll(){
         transactionLocks.clear();
     }
 
     // 没有同步
-    public  static void releaseLocks(TransactionId tid){
+    public   synchronized void releaseLocks(TransactionId tid){
         for(Set<Lock> locks : transactionLocks.values()){
             for(Lock lock : locks){
                 if(lock.transactionId.equals(tid)){
@@ -53,5 +53,104 @@ public class LockManager {
                 }
             }
         }
+    }
+
+    // Record the pages which some Transaction waits
+    private  Map<TransactionId, Set<PageId>> waitList = new HashMap<>();
+    /*
+     * Detect DeadLock
+     */
+    public  synchronized void waitForPage(TransactionId transactionId, PageId pageId) throws TransactionAbortedException {
+        transactionIdHashSet.clear();
+        deadLock(transactionId, pageId);
+
+        Set<PageId> pageIds = waitList.computeIfAbsent(transactionId, k -> new HashSet<>());
+        pageIds.add(pageId);
+    }
+
+    public  synchronized void cancelWaitState(TransactionId transactionId, PageId pageId){
+        Set<PageId> pageIds = waitList.computeIfAbsent(transactionId, k -> new HashSet<>());
+        pageIds.remove(pageId);
+    }
+
+    public  synchronized Set<PageId> getWaitPages(TransactionId transactionId){
+        return waitList.get(transactionId);
+    }
+
+    private  HashSet<TransactionId> transactionIdHashSet = new HashSet<>();
+
+    private  synchronized void deadLock(TransactionId transactionId, PageId pageId) throws TransactionAbortedException {
+        if(transactionIdHashSet.contains(transactionId)){
+            throw new TransactionAbortedException();
+        }
+        transactionIdHashSet.add(transactionId);
+        //当前占有该页面的所有事务
+        //递归检测
+        Set<Lock> locks = getLocks(pageId);
+        if(locks == null)return;
+        for (Lock lock:locks){
+            if(lock.transactionId.equals(transactionId))continue;
+            Set<PageId> waitList = getWaitPages(lock.transactionId);
+            //如果为空，证明没有在等待的资源(页面)
+            if(waitList == null)return;
+            for(PageId pageId1:waitList){
+                deadLock(lock.transactionId, pageId1);
+            }
+        }
+    }
+
+    public  void tryToGetPage(TransactionId tid, PageId pid, Permissions perm) throws TransactionAbortedException {
+        Set<Lock> locks = getLocks(pid);
+//        LockManager.waitForPage(tid, pid);
+//        synchronized (this){
+        if(locks != null){
+            if (perm == Permissions.READ_ONLY){
+                boolean flag;
+                do{
+                    flag = true;
+//                    System.out.println(locks.size());
+//                    synchronized (this){
+                        for(Lock lock:locks){
+                            //如果该页面被其他进程占用
+//                        System.out.println("?");
+                            if(lock.permissions == Permissions.READ_WRITE && !lock.transactionId.equals(tid)){
+//                            System.out.println(lock.transactionId.hashCode() +" | " + tid.hashCode());
+                                flag = false;
+                                break;
+                            }
+                        }
+//                    }
+                    if(!flag){
+                        waitForPage(tid, pid);
+                    }
+                }while (!flag);
+//                System.out.println("R");
+
+            }else {
+                boolean flag;
+                do{
+                    flag = true;
+//                    System.out.println(locks.size());
+//                    synchronized (this){
+                        for(Lock lock:locks){
+                            if(!lock.transactionId.equals(tid)){
+                                flag = false;
+                                break;
+                            }
+                        }
+//                    }
+
+                    if(!flag){
+                        waitForPage(tid, pid);
+                    }
+//                    System.out.println("W");
+                }while (!flag);
+            }
+        }
+//        }
+
+        // some code goes here
+        cancelWaitState(tid, pid);
+        addLock(pid, tid,perm);
     }
 }

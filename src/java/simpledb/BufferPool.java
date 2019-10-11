@@ -19,6 +19,7 @@ import static java.time.chrono.JapaneseEra.values;
  * @Threadsafe, all fields are final
  */
 public class BufferPool {
+    private LockManager lockManager;
     /** Bytes per page, including header. */
     private static final int DEFAULT_PAGE_SIZE = 4096;
 
@@ -41,10 +42,10 @@ public class BufferPool {
         // some code goes here
         cache = new HashMap<>();
         pageLimit = numPages;
-        LockManager.removeAll();
+        lockManager = new LockManager();
     }
 
-    private void CachePage(PageId pageId, Page page) throws DbException {
+    private synchronized void CachePage(PageId pageId, Page page) throws DbException {
         //if not contains now and pool is full
         //call evictPage()
         if(!cache.containsKey(pageId) && cache.size() >= pageLimit){
@@ -87,7 +88,7 @@ public class BufferPool {
      * @param pid the ID of the requested page
      * @param perm the requested permissions on the page
      */
-    public  synchronized Page getPage(TransactionId tid, PageId pid, Permissions perm)
+    public   Page getPage(TransactionId tid, PageId pid, Permissions perm)
         throws TransactionAbortedException, DbException {
         //获取Lock 只能在getPage()?
         Page page = cache.get(pid);
@@ -96,43 +97,10 @@ public class BufferPool {
             CachePage(pid, page);
         }
 
-//        System.out.println(tid.hashCode() + " " + page.getId().hashCode() + " " + perm);
+        System.out.println(tid.hashCode() + " " + page.getId().hashCode() + " " + perm);
 
-        Set<Lock> locks = LockManager.getLocks(pid);
-        if(locks != null){
-            if (perm == Permissions.READ_ONLY){
-                boolean flag;
-                do{
-                    flag = true;
-//                    System.out.println(locks.size());
-                    for(Lock lock:locks){
-                        //如果该页面被其他进程占用
-//                        System.out.println("?");
-                        if(lock.permissions == Permissions.READ_WRITE && !lock.transactionId.equals(tid)){
-//                            System.out.println(lock.transactionId.hashCode() +" | " + tid.hashCode());
-                            flag = false;
-                        }
-                    }
-                }while (!flag);
-//                System.out.println("R");
+        lockManager.tryToGetPage(tid,pid,perm);
 
-            }else {
-                boolean flag;
-                do{
-                    flag = true;
-//                    System.out.println(locks.size());
-                    for(Lock lock:locks){
-                        if(!lock.transactionId.equals(tid)){
-                            flag = false;
-                        }
-                    }
-//                    System.out.println("W");
-                }while (!flag);
-            }
-        }
-
-        // some code goes here
-        LockManager.addLock(pid, tid,perm);
         return page;
     }
 
@@ -148,7 +116,7 @@ public class BufferPool {
     public  synchronized void releasePage(TransactionId tid, PageId pid) throws TransactionAbortedException, DbException {
         // some code goes here
         // not necessary for lab1|lab2
-        LockManager.removeLock(pid, tid);
+        lockManager.removeLock(pid, tid);
     }
 
     /**
@@ -163,10 +131,10 @@ public class BufferPool {
     }
 
     /** Return true if the specified transaction has a lock on the specified page */
-    public boolean holdsLock(TransactionId tid, PageId pid) throws TransactionAbortedException, DbException {
+    public synchronized boolean holdsLock(TransactionId tid, PageId pid) throws TransactionAbortedException, DbException {
         // some code goes here
         // not necessary for lab1|lab2
-        Set<Lock> locks = LockManager.getLocks(pid);
+        Set<Lock> locks = lockManager.getLocks(pid);
         for(Lock lock: locks){
             if(lock.transactionId.equals(tid)){
                 return true;
@@ -182,7 +150,7 @@ public class BufferPool {
      * @param tid the ID of the transaction requesting the unlock
      * @param commit a flag indicating whether we should commit or abort
      */
-    //不加同步锁有时候会引发 并发相关的Exception ，主要是遍历迭代器的时候
+    //不加同步锁有时候会引发 并发相关的Exception ，主要是遍历迭代器
     //应该是同步遍历一个HashSet，删除某个节点可能导致另一个迭代出现问题
     public synchronized void transactionComplete(TransactionId tid, boolean commit)
         throws IOException {
@@ -201,7 +169,7 @@ public class BufferPool {
             }
         }
         //
-        LockManager.releaseLocks(tid);
+        lockManager.releaseLocks(tid);
     }
 
     /**
@@ -253,7 +221,7 @@ public class BufferPool {
 
     // 注意要update，因为可能你还没访问过一个Page，然后你插入/删除元组使得他发生了改变
     // 那么你有两个选择，把它cache到buffer pool或者flush到disk
-    private void updateCachedPages(List<Page> pages) throws DbException {
+    private synchronized void updateCachedPages(List<Page> pages) throws DbException {
         for(Page page:pages){
             CachePage(page.getId(),page);
         }
@@ -336,7 +304,7 @@ public class BufferPool {
     /*
      * Random Policy................................
      */
-    private Page evictPolicy() throws DbException {
+    private synchronized Page evictPolicy() throws DbException {
         Set<Map.Entry<PageId, Page>> entrySet = cache.entrySet();
 //        PageId pageId = null;
         for(Map.Entry<PageId, Page> entry : entrySet){

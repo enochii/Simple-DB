@@ -250,7 +250,7 @@ public class HeapFile implements DbFile {
 //
 //            pos++;
 //            return tuple;
-            if(it == null){
+            if(!hasNext()){
                 throw new NoSuchElementException();
             }
             return it.next();
