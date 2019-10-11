@@ -159,6 +159,7 @@ public class BufferPool {
     public void transactionComplete(TransactionId tid) throws IOException {
         // some code goes here
         // not necessary for lab1|lab2
+        transactionComplete(tid, true);
     }
 
     /** Return true if the specified transaction has a lock on the specified page */
@@ -181,10 +182,26 @@ public class BufferPool {
      * @param tid the ID of the transaction requesting the unlock
      * @param commit a flag indicating whether we should commit or abort
      */
-    public void transactionComplete(TransactionId tid, boolean commit)
+    //不加同步锁有时候会引发 并发相关的Exception ，主要是遍历迭代器的时候
+    //应该是同步遍历一个HashSet，删除某个节点可能导致另一个迭代出现问题
+    public synchronized void transactionComplete(TransactionId tid, boolean commit)
         throws IOException {
-        // some code goes here
-        // not necessary for lab1|lab2
+        //Commit should flush dirty pages, On the other hand, Abort discard them
+        //release lock held by transaction
+        Set<Map.Entry<PageId, Page>> entrySet = cache.entrySet();
+        for (Map.Entry<PageId, Page> entry : entrySet){
+            Page page = entry.getValue();
+            if(tid.equals(page.isDirty())){
+                if(commit){
+                    Database.getBufferPool().flushPage(page);
+                }else{
+                    Database.getBufferPool().discardPage(page.getId());
+                }
+                page.markDirty(false, null);
+            }
+        }
+        //
+        LockManager.releaseLocks(tid);
     }
 
     /**
@@ -306,25 +323,31 @@ public class BufferPool {
     private synchronized  void evictPage() throws DbException{
         // some code goes here
         // not necessary for lab1
-        PageId pageId = evictPolicy();
-        Page page = cache.get(pageId);
+        Page page = evictPolicy();
 
         try {
-            Database.getCatalog().getDatabaseFile(pageId).writePage(page);
+            Database.getCatalog().getDatabaseFile(page.getId()).writePage(page);
         } catch (IOException e) {
             throw new DbException("IOExp when evict");
         }
-        discardPage(pageId);
+        discardPage(page.getId());
     }
 
     /*
      * Random Policy................................
      */
-    private PageId evictPolicy(){
-        Set<PageId> pageIds_ = cache.keySet();
-        Object[] pageIds =  pageIds_.toArray();
-
-        int i = Math.abs(new Random().nextInt()) % pageIds.length;
-        return (PageId) pageIds[i];
+    private Page evictPolicy() throws DbException {
+        Set<Map.Entry<PageId, Page>> entrySet = cache.entrySet();
+//        PageId pageId = null;
+        for(Map.Entry<PageId, Page> entry : entrySet){
+            if(entry.getValue().isDirty() == null){
+                return entry.getValue();
+            }
+        }
+        throw new DbException("No Clean Page to EVICT");
+//        Object[] pageIds =  pageIds_.toArray();
+//
+//        int i = Math.abs(new Random().nextInt()) % pageIds.length;
+//        return (PageId) pageIds[i];
     }
 }

@@ -43,4 +43,15 @@ public class LockManager {
     public static void removeAll(){
         transactionLocks.clear();
     }
+
+    // 没有同步
+    public  static void releaseLocks(TransactionId tid){
+        for(Set<Lock> locks : transactionLocks.values()){
+            for(Lock lock : locks){
+                if(lock.transactionId.equals(tid)){
+                    locks.remove(lock);
+                }
+            }
+        }
+    }
 }
