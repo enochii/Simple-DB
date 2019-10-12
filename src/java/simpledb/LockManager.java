@@ -6,34 +6,38 @@ public class LockManager {
     private  Map<PageId, Set<Lock>> transactionLocks = new HashMap<>();
 
     public  synchronized void addLock(PageId pageId, TransactionId transactionId, Permissions permissions){
-        Set<Lock> locks = transactionLocks.computeIfAbsent(pageId, k -> new HashSet<>());
+        synchronized (this){
+            Set<Lock> locks = transactionLocks.computeIfAbsent(pageId, k -> new HashSet<>());
 
 //        locks.add(new Lock(permissions, transactionId));
-        for(Lock lock : locks){
-            if ((lock.transactionId.equals(transactionId))){
-                if(permissions == lock.permissions)return;
-                //upgrade
-                if(permissions == Permissions.READ_WRITE){
-                    lock.permissions = Permissions.READ_WRITE;
+            for(Lock lock : locks){
+                if ((lock.transactionId.equals(transactionId))){
+                    if(permissions == lock.permissions)return;
+                    //upgrade
+                    if(permissions == Permissions.READ_WRITE){
+                        lock.permissions = Permissions.READ_WRITE;
+                    }
+                    return;
                 }
-                return;
             }
+            //Add first time
+            locks.add(new Lock(permissions, transactionId));
         }
-        //Add first time
-        locks.add(new Lock(permissions, transactionId));
     }
 
-    public  synchronized void removeLock(PageId pageId, TransactionId transactionId){
-        Set<Lock> locks = getLocks(pageId);
-        for(Lock lock: locks){
-            if(lock.transactionId.equals(transactionId)){
-                locks.remove(lock);
+    public void removeLock(PageId pageId, TransactionId transactionId){
+        synchronized (this){
+            Set<Lock> locks = getLocks(pageId);
+            for(Lock lock: locks){
+                if(lock.transactionId.equals(transactionId)){
+                    locks.remove(lock);
 //                break;
+                }
             }
         }
     }
 
-    public  synchronized Set<Lock> getLocks(PageId pageId){
+    private synchronized Set<Lock> getLocks(PageId pageId){
         return transactionLocks.get(pageId);
     }
 
@@ -45,12 +49,15 @@ public class LockManager {
     }
 
     // 没有同步
-    public   synchronized void releaseLocks(TransactionId tid){
-        for(Set<Lock> locks : transactionLocks.values()){
-            for(Lock lock : locks){
-                if(lock.transactionId.equals(tid)){
-                    locks.remove(lock);
-                }
+    public void releaseLocks(TransactionId tid){
+        synchronized (this){
+            for(Set<Lock> locks : transactionLocks.values()){
+//                for(Lock lock : locks){
+//                    if(lock.transactionId.equals(tid)){
+//                        locks.remove(lock);
+//                    }
+//                }
+                locks.removeIf(lock -> lock.transactionId.equals(tid));
             }
         }
     }
@@ -60,17 +67,21 @@ public class LockManager {
     /*
      * Detect DeadLock
      */
-    public  synchronized void waitForPage(TransactionId transactionId, PageId pageId) throws TransactionAbortedException {
+    public  void waitForPage(TransactionId transactionId, PageId pageId) throws TransactionAbortedException {
         transactionIdHashSet.clear();
         deadLock(transactionId, pageId);
 
-        Set<PageId> pageIds = waitList.computeIfAbsent(transactionId, k -> new HashSet<>());
-        pageIds.add(pageId);
+        synchronized (this){
+            Set<PageId> pageIds = waitList.computeIfAbsent(transactionId, k -> new HashSet<>());
+            pageIds.add(pageId);
+        }
     }
 
-    public  synchronized void cancelWaitState(TransactionId transactionId, PageId pageId){
-        Set<PageId> pageIds = waitList.computeIfAbsent(transactionId, k -> new HashSet<>());
-        pageIds.remove(pageId);
+    public  void cancelWaitState(TransactionId transactionId, PageId pageId){
+       synchronized (this){
+           Set<PageId> pageIds = waitList.computeIfAbsent(transactionId, k -> new HashSet<>());
+           pageIds.remove(pageId);
+       }
     }
 
     public  synchronized Set<PageId> getWaitPages(TransactionId transactionId){
@@ -79,22 +90,24 @@ public class LockManager {
 
     private  HashSet<TransactionId> transactionIdHashSet = new HashSet<>();
 
-    private  synchronized void deadLock(TransactionId transactionId, PageId pageId) throws TransactionAbortedException {
+    private  void deadLock(TransactionId transactionId, PageId pageId) throws TransactionAbortedException {
         if(transactionIdHashSet.contains(transactionId)){
             throw new TransactionAbortedException();
         }
         transactionIdHashSet.add(transactionId);
         //当前占有该页面的所有事务
         //递归检测
-        Set<Lock> locks = getLocks(pageId);
-        if(locks == null)return;
-        for (Lock lock:locks){
-            if(lock.transactionId.equals(transactionId))continue;
-            Set<PageId> waitList = getWaitPages(lock.transactionId);
-            //如果为空，证明没有在等待的资源(页面)
-            if(waitList == null)return;
-            for(PageId pageId1:waitList){
-                deadLock(lock.transactionId, pageId1);
+        synchronized (this){
+            Set<Lock> locks = getLocks(pageId);
+            if(locks == null)return;
+            for (Lock lock:locks){
+                if(lock.transactionId.equals(transactionId))continue;
+                Set<PageId> waitList = getWaitPages(lock.transactionId);
+                //如果为空，证明没有在等待的资源(页面)
+                if(waitList == null)return;
+                for(PageId pageId1:waitList){
+                    deadLock(lock.transactionId, pageId1);
+                }
             }
         }
     }
@@ -109,7 +122,7 @@ public class LockManager {
                 do{
                     flag = true;
 //                    System.out.println(locks.size());
-//                    synchronized (this){
+                    synchronized (this){
                         for(Lock lock:locks){
                             //如果该页面被其他进程占用
 //                        System.out.println("?");
@@ -119,7 +132,7 @@ public class LockManager {
                                 break;
                             }
                         }
-//                    }
+                    }
                     if(!flag){
                         waitForPage(tid, pid);
                     }
@@ -131,14 +144,14 @@ public class LockManager {
                 do{
                     flag = true;
 //                    System.out.println(locks.size());
-//                    synchronized (this){
+                    synchronized (this){
                         for(Lock lock:locks){
                             if(!lock.transactionId.equals(tid)){
                                 flag = false;
                                 break;
                             }
                         }
-//                    }
+                    }
 
                     if(!flag){
                         waitForPage(tid, pid);
@@ -152,5 +165,19 @@ public class LockManager {
         // some code goes here
         cancelWaitState(tid, pid);
         addLock(pid, tid,perm);
+    }
+
+    public boolean holdsLock(TransactionId tid, PageId pid) throws TransactionAbortedException, DbException {
+        // some code goes here
+        // not necessary for lab1|lab2
+        synchronized (this){
+            Set<Lock> locks = getLocks(pid);
+            for(Lock lock: locks){
+                if(lock.transactionId.equals(tid)){
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 }

@@ -97,7 +97,7 @@ public class BufferPool {
             CachePage(pid, page);
         }
 
-        System.out.println(tid.hashCode() + " " + page.getId().hashCode() + " " + perm);
+//        System.out.println(tid.hashCode() + " " + page.getId().hashCode() + " " + perm);
 
         lockManager.tryToGetPage(tid,pid,perm);
 
@@ -131,16 +131,10 @@ public class BufferPool {
     }
 
     /** Return true if the specified transaction has a lock on the specified page */
-    public synchronized boolean holdsLock(TransactionId tid, PageId pid) throws TransactionAbortedException, DbException {
+    public boolean holdsLock(TransactionId tid, PageId pid) throws TransactionAbortedException, DbException {
         // some code goes here
         // not necessary for lab1|lab2
-        Set<Lock> locks = lockManager.getLocks(pid);
-        for(Lock lock: locks){
-            if(lock.transactionId.equals(tid)){
-                return true;
-            }
-        }
-        return false;
+        return lockManager.holdsLock(tid, pid);
     }
 
     /**
@@ -157,13 +151,15 @@ public class BufferPool {
         //Commit should flush dirty pages, On the other hand, Abort discard them
         //release lock held by transaction
         Set<Map.Entry<PageId, Page>> entrySet = cache.entrySet();
-        for (Map.Entry<PageId, Page> entry : entrySet){
-            Page page = entry.getValue();
+        Iterator<Map.Entry<PageId, Page>> iterator = entrySet.iterator();
+        while (iterator.hasNext()){
+            Page page = iterator.next().getValue();
             if(tid.equals(page.isDirty())){
                 if(commit){
                     Database.getBufferPool().flushPage(page);
                 }else{
-                    Database.getBufferPool().discardPage(page.getId());
+//                    Database.getBufferPool().discardPage(page.getId());
+                    iterator.remove();
                 }
                 page.markDirty(false, null);
             }
