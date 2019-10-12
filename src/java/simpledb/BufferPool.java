@@ -97,7 +97,7 @@ public class BufferPool {
             CachePage(pid, page);
         }
 
-//        System.out.println(tid.hashCode() + " " + page.getId().hashCode() + " " + perm);
+        System.out.println(tid.hashCode() + " " + page.getId().hashCode() + " " + perm);
 
         lockManager.tryToGetPage(tid,pid,perm);
 
@@ -302,11 +302,13 @@ public class BufferPool {
      */
     private synchronized Page evictPolicy() throws DbException {
         Set<Map.Entry<PageId, Page>> entrySet = cache.entrySet();
+        System.out.println(cache.size());
 //        PageId pageId = null;
         for(Map.Entry<PageId, Page> entry : entrySet){
             if(entry.getValue().isDirty() == null){
                 return entry.getValue();
             }
+            System.out.println(entry.getValue().hashCode() + " " + entry.getValue().isDirty().hashCode());
         }
         throw new DbException("No Clean Page to EVICT");
 //        Object[] pageIds =  pageIds_.toArray();
