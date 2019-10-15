@@ -68,13 +68,16 @@ public class LockManager {
      * Detect DeadLock
      */
     public  void waitForPage(TransactionId transactionId, PageId pageId) throws TransactionAbortedException {
-        transactionIdHashSet.clear();
-        deadLock(transactionId, pageId);
 
         synchronized (this){
             Set<PageId> pageIds = waitList.computeIfAbsent(transactionId, k -> new HashSet<>());
             pageIds.add(pageId);
         }
+    }
+
+    public synchronized void deadLockTest(TransactionId transactionId, PageId pageId) throws TransactionAbortedException {
+        transactionIdHashSet.clear();
+        deadLock(transactionId, pageId);
     }
 
     public  void cancelWaitState(TransactionId transactionId, PageId pageId){
@@ -114,7 +117,7 @@ public class LockManager {
 
     public  void tryToGetPage(TransactionId tid, PageId pid, Permissions perm) throws TransactionAbortedException {
         Set<Lock> locks = getLocks(pid);
-//        LockManager.waitForPage(tid, pid);
+        waitForPage(tid, pid);
 //        synchronized (this){
         if(locks != null){
             if (perm == Permissions.READ_ONLY){
@@ -134,7 +137,8 @@ public class LockManager {
                         }
                     }
                     if(!flag){
-                        waitForPage(tid, pid);
+//                        waitForPage(tid, pid);
+                        deadLockTest(tid, pid);
                     }
                 }while (!flag);
 //                System.out.println("R");
@@ -154,7 +158,8 @@ public class LockManager {
                     }
 
                     if(!flag){
-                        waitForPage(tid, pid);
+//                        waitForPage(tid, pid);
+                        deadLockTest(tid, pid);
                     }
 //                    System.out.println("W");
                 }while (!flag);
