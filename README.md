@@ -8,8 +8,17 @@ Directions for Repo Setup
 
 Directions can be [here](https://github.com/MIT-DB-Class/course-info-2018)
 
-Lab Submission
------
+### (DO WANT) TO DO
 
-Instructions for labs (including how to submit answers) are [here](https://github.com/MIT-DB-Class/course-info-2018)
+The code still has some bugs:
 
+- CAN NOT PASS Query Test in Lab 3 because of the low efficiency
+- CAN NOT PASS Transaction (sys)Test in lab 4
+
+Because the experience of debugging and my poor knowledge, I want to say goodbye to this class, from which i actually learn something. hhhhhhhhh
+
+So, HAVE FUN!
+
+### Others
+
+[Here](DeadlockAlgorithm.md) is my deadlock detect algorithm(IN CHINESE).

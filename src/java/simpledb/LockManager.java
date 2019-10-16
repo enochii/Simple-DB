@@ -11,6 +11,7 @@ public class LockManager {
 
 //        locks.add(new Lock(permissions, transactionId));
             for(Lock lock : locks){
+                if(lock.transactionId == null)continue;
                 if ((lock.transactionId.equals(transactionId))){
                     if(permissions == lock.permissions)return;
                     //upgrade
@@ -68,7 +69,8 @@ public class LockManager {
      * Detect DeadLock
      */
     public  void waitForPage(TransactionId transactionId, PageId pageId) throws TransactionAbortedException {
-
+        //TODO :如果是想处理并发条件下的死锁，这里的同步需要去掉
+        //      因为死锁的检测依赖于waitList，同步后导致第二个事务无法注册“等待”状态
         synchronized (this){
             Set<PageId> pageIds = waitList.computeIfAbsent(transactionId, k -> new HashSet<>());
             pageIds.add(pageId);
@@ -150,6 +152,7 @@ public class LockManager {
 //                    System.out.println(locks.size());
                     synchronized (this){
                         for(Lock lock:locks){
+                            if(lock.transactionId == null)continue;
                             if(!lock.transactionId.equals(tid)){
                                 flag = false;
                                 break;
